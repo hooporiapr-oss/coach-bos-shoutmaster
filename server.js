@@ -22,16 +22,7 @@ const anthropic = new Anthropic.default({
 
 // ═══ MIDDLEWARE ═══
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:"],
-      connectSrc: ["'self'"],
-    },
-  },
+  contentSecurityPolicy: false,
 }));
 
 app.use(cors({
