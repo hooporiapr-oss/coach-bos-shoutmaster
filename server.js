@@ -106,31 +106,39 @@ app.post('/api/chat', chatLimiter, async (req, res) => {
       ? '\n\n[LANGUAGE CONTEXT: The user is using the Spanish interface. Respond in Puerto Rican Spanish (boricua). Use natural boricua expressions.]'
       : '\n\n[LANGUAGE CONTEXT: The user is using the English interface. Respond in English.]';
 
-    // Call Claude
-    const response = await anthropic.messages.create({
+    // Set SSE headers for streaming
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    // Stream from Claude
+    const stream = anthropic.messages.stream({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1024,
       system: systemPrompt + langContext,
       messages: messages,
     });
 
-    // Extract text response
-    const reply = response.content
-      .filter((block) => block.type === 'text')
-      .map((block) => block.text)
-      .join('\n')
-      .trim();
+    stream.on('text', (text) => {
+      res.write(`data: ${JSON.stringify({ type: 'text', text })}\n\n`);
+    });
 
-    if (!reply) {
-      return res.status(500).json({ error: 'Empty response from Coach BOS.' });
-    }
+    stream.on('end', () => {
+      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+      res.end();
+    });
 
-    res.json({
-      reply,
-      usage: {
-        input: response.usage?.input_tokens || 0,
-        output: response.usage?.output_tokens || 0,
-      },
+    stream.on('error', (err) => {
+      console.error('[Coach BOS Stream Error]', err.message || err);
+      res.write(`data: ${JSON.stringify({ type: 'error', error: 'Coach BOS hit a wall. Try again.' })}\n\n`);
+      res.end();
+    });
+
+    // Handle client disconnect
+    req.on('close', () => {
+      stream.abort();
     });
 
   } catch (err) {
