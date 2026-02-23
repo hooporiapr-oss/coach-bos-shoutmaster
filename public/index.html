@@ -7,6 +7,14 @@
   <meta property="og:title" content="Coach BOS — The Voice of PR Esports">
   <meta property="og:description" content="Talk to Coach BOS — AI esports authority for Puerto Rico. Tournaments, strategy, GAMERGY, and the whole scene. GET COACHED.™">
   <meta property="og:type" content="website">
+  <meta property="og:image" content="https://coach-bos-shoutmaster.onrender.com/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://coach-bos-shoutmaster.onrender.com">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Coach BOS — The Voice of PR Esports">
+  <meta name="twitter:description" content="Talk to Coach BOS — AI esports authority for Puerto Rico. GAMERGY, tournaments, strategy. GET COACHED.™">
+  <meta name="twitter:image" content="https://coach-bos-shoutmaster.onrender.com/og-image.png">
   <title>Coach BOS — Talk Esports 🇵🇷 | GET COACHED.™</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -121,7 +129,7 @@
 
   <!-- ═══ HEADER ═══ -->
   <div class="hdr">
-    <a href="/" class="hdr-back" title="BOS Esports">←</a>
+    <a href="https://bosesports.com" class="hdr-back" title="BOS Esports">←</a>
     <div class="hdr-av"><img src="/bos.png" alt="Coach BOS"></div>
     <div class="hdr-info">
       <div class="hdr-name">COACH BOS</div>
@@ -150,8 +158,8 @@
       </button>
     </div>
   </div>
-  <div class="powered en">Powered by <a href="/">BOS Esports</a> · GoStar Digital LLC 🇵🇷</div>
-  <div class="powered es">Impulsado por <a href="/">BOS Esports</a> · GoStar Digital LLC 🇵🇷</div>
+  <div class="powered en">Powered by <a href="https://bosesports.com">BOS Esports</a> · GoStar Digital LLC 🇵🇷</div>
+  <div class="powered es">Impulsado por <a href="https://bosesports.com">BOS Esports</a> · GoStar Digital LLC 🇵🇷</div>
 
   <script>
   (function(){
@@ -242,7 +250,7 @@
 
       try{
         var ctrl=new AbortController();
-        var tmout=setTimeout(function(){ctrl.abort();},30000);
+        var tmout=setTimeout(function(){ctrl.abort();},45000);
 
         var res=await fetch('/api/chat',{
           method:'POST',
@@ -254,28 +262,76 @@
         clearTimeout(tmout);
         killDots();
 
-        if(!res.ok){
-          var errMsgEN='Had a timeout. Try again — I\'m warming back up. ⚡';
-          var errMsgES='Se me fue el tiempo. Intenta de nuevo — estoy calentando. ⚡';
+        if(!res.ok||!res.body){
+          var errMsgEN='Had a timeout. Try again.';
+          var errMsgES='Se me fue el tiempo. Intenta de nuevo.';
           addBub('bos',lang==='es'?errMsgES:errMsgEN,true);
           busy=false;sendBtn.disabled=false;return;
         }
 
-        var data=await res.json();
-        var reply=data.reply||'...';
-        addBub('bos',reply);
-        hist.push({role:'assistant',content:reply});
+        // Create streaming bubble
+        clearWelcome();
+        var r=document.createElement('div');
+        r.className='row row-bos';
+        var a=document.createElement('div');
+        a.className='av av-bos';
+        a.innerHTML='<img src="/bos.png" alt="BOS">';
+        var b=document.createElement('div');
+        b.className='bub bub-bos';
+        b.textContent='';
+        r.appendChild(a);r.appendChild(b);
+        chat.appendChild(r);
+
+        var fullReply='';
+        var reader=res.body.getReader();
+        var decoder=new TextDecoder();
+        var buffer='';
+
+        while(true){
+          var result=await reader.read();
+          if(result.done)break;
+          buffer+=decoder.decode(result.value,{stream:true});
+
+          var lines=buffer.split('\n');
+          buffer=lines.pop()||'';
+
+          for(var i=0;i<lines.length;i++){
+            var line=lines[i].trim();
+            if(!line.startsWith('data: '))continue;
+            var json=line.slice(6);
+            try{
+              var evt=JSON.parse(json);
+              if(evt.type==='text'){
+                fullReply+=evt.text;
+                b.textContent=fullReply;
+                chat.scrollTop=chat.scrollHeight;
+              }else if(evt.type==='error'){
+                if(!fullReply){
+                  b.className='bub bub-err';
+                  b.textContent=evt.error||'Something went wrong.';
+                }
+              }
+            }catch(pe){}
+          }
+        }
+
+        if(!fullReply){
+          b.className='bub bub-err';
+          b.textContent=lang==='es'?'No recibí respuesta. Intenta de nuevo.':'No response received. Try again.';
+        }
+
+        hist.push({role:'assistant',content:fullReply});
         if(hist.length>40)hist=hist.slice(-40);
 
       }catch(e){
         killDots();
         if(e.name==='AbortError'){
-          var toEN='I\'m warming up. Give me a moment and try again. ⚡';
-          var toES='Estoy calentando. Dame un momento e intenta de nuevo. ⚡';
+          var toEN='Request timed out. Try again.';
+          var toES='Se agotó el tiempo. Intenta de nuevo.';
           addBub('bos',lang==='es'?toES:toEN,true);
         }else{
-          var ceEN='Connection issue. Try again. ⚡';
-          var ceES='Problema de conexión. Intenta de nuevo. ⚡';
+          var ceEN='Connection issue. Try again.';
+          var ceES='Problema de conexión. Intenta de nuevo.';
           addBub('bos',lang==='es'?ceES:ceEN,true);
         }
       }
