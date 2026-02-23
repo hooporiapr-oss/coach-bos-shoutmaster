@@ -27,6 +27,8 @@ app.use(helmet({
 
 app.use(cors({
   origin: [
+    'https://theshoutmaster.com',
+    'https://www.theshoutmaster.com',
     'https://coach-bos-shoutmaster.onrender.com',
     'https://bosesports.com',
     'https://www.bosesports.com',
